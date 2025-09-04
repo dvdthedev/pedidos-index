@@ -13,6 +13,8 @@ const mensagemListaVazia = document.getElementById('mensagem-lista-vazia');
 // Botões de Navegação
 const btnNovoPedido = document.getElementById('btn-novo-pedido');
 const btnListarPedidos = document.getElementById('btn-listar-pedidos');
+const btnListarPedidosAntigos = document.getElementById('btn-listar-pedidos-antigos');
+
 const btnCancelar = document.getElementById('btn-cancelar');
 
 // Elementos do Modal de Exclusão
@@ -22,8 +24,8 @@ const btnConfirmarExclusao = document.getElementById('btn-confirmar-exclusao');
 let idParaExcluir = null;
 
 
-// Funções utilitárias para validação elegante
-class ValidadorElegante {
+
+class ValidadorToast {
     constructor() {
         this.criarToast();
     }
@@ -42,36 +44,48 @@ class ValidadorElegante {
         }
     }
 
-    // Valida se a data/hora está no futuro
-    validarDataFutura(data, hora) {
-        if (!data || !hora) {
-            return {
-                valido: false,
-                erro: 'Data e hora são obrigatórias'
-            };
+validarDataFutura(data, hora) {
+    if (!data || !hora) {
+        return {
+            valido: false,
+            erro: 'Data e hora são obrigatórias'
+        };
+    }
+
+    const agora = new Date();
+    const dataHora = new Date(`${data}T${hora}:00`);
+
+    //Validação para datas no passado
+    if (dataHora <= agora) {
+        const diferenca = Math.ceil((agora - dataHora) / (1000 * 60 * 60 * 24));
+        let mensagem;
+        
+        if (diferenca === 0) {
+            mensagem = 'A entrega deve ser agendada para o futuro';
+        } else if (diferenca === 1) {
+            mensagem = 'Esta data foi ontem. Selecione uma data futura';
+        } else {
+            mensagem = `Esta data foi há ${diferenca} dias atrás`;
         }
 
-        const agora = new Date();
-        const dataHora = new Date(`${data}T${hora}:00`);
+        return {
+            valido: false,
+            erro: mensagem
+        };
+    }
 
-        if (dataHora <= agora) {
-            const diferenca = Math.ceil((agora - dataHora) / (1000 * 60 * 60 * 24));
-            let mensagem;
-            
-            if (diferenca === 0) {
-                mensagem = 'A entrega deve ser agendada para o futuro';
-            } else if (diferenca === 1) {
-                mensagem = 'Esta data foi ontem. Selecione uma data futura';
-            } else {
-                mensagem = `Esta data foi há ${diferenca} dias atrás`;
-            }
+    
+    // Validação para datas além de 365 dias no futuro
+    const dataLimite = new Date();
+    dataLimite.setDate(agora.getDate() + 365); // Adiciona 365 dias à data atual
 
-            return {
-                valido: false,
-                erro: mensagem
-            };
-        }
-
+    if (dataHora > dataLimite) {
+        return {
+            valido: false,
+            erro: 'O agendamento não pode exceder 365 dias a partir de hoje.'
+        };
+    }
+       
         return { valido: true };
     }
 
@@ -94,10 +108,9 @@ class ValidadorElegante {
         tooltip.textContent = mensagem;
         tooltip.classList.add('show');
 
-        // Auto-remove após 5 segundos
         setTimeout(() => {
             this.limparErroTooltip(input);
-        }, 5000);
+        }, 4000);
 
         // Remove erro quando usuario focar no campo
         const removerErro = () => {
@@ -124,15 +137,15 @@ class ValidadorElegante {
         toastMessage.textContent = mensagem;
         toast.className = `toast ${tipo} show`;
         
-        // Auto-hide após 4 segundos
+        // Auto-hide após 8 segundos
         setTimeout(() => {
             toast.classList.remove('show');
-        }, 4000);
+        }, 3000);
     }
 }
 
 // Instância global do validador
-const validador = new ValidadorElegante();
+const validador = new ValidadorToast();
 
 
 // --- Funções de Controle da UI ---
@@ -160,6 +173,20 @@ const resetarFormulario = () => {
 const listarPedidos = async () => {
     try {
         const response = await fetch(API_URL);
+        if (!response.ok) {
+            throw new Error('Erro ao buscar pedidos.');
+        }
+        const pedidos = await response.json();
+        renderizarTabela(pedidos);
+    } catch (error) {
+        console.error('Falha na listagem:', error);
+        alert('Não foi possível carregar os pedidos.');
+    }
+};
+
+const listarPedidosAntigos = async () => {
+    try {
+        const response = await fetch(API_URL + "/passado");
         if (!response.ok) {
             throw new Error('Erro ao buscar pedidos.');
         }
@@ -221,10 +248,8 @@ const salvarPedido = async (event) => {
         validador.mostrarErroTooltip(dataEntregaInput, validacao.erro);
         
         // Mostra também notificação toast
-        validador.mostrarToast('Por favor, selecione uma data futura para entrega', 'error');
+        validador.mostrarToast('Por favor, selecione uma data válida para entrega', 'error');
         
-        // Foca no campo com erro
-        dataEntregaInput.focus();
         return;
     }
 
@@ -259,7 +284,6 @@ const salvarPedido = async (event) => {
             throw new Error('Erro ao salvar o pedido.');
         }
 
-        // SUCESSO COM NOTIFICAÇÃO ELEGANTE
         validador.mostrarToast(
             isUpdating ? 'Pedido atualizado com sucesso!' : 'Pedido criado com sucesso!', 
             'success'
@@ -271,8 +295,7 @@ const salvarPedido = async (event) => {
 
     } catch (error) {
         console.error('Falha ao salvar:', error);
-        
-        // ERRO COM NOTIFICAÇÃO ELEGANTE
+
         validador.mostrarToast(
             'Não foi possível salvar o pedido. Verifique os dados e tente novamente.',
             'error'
@@ -374,6 +397,11 @@ btnListarPedidos.addEventListener('click', () => {
 btnCancelar.addEventListener('click', () => {
     resetarFormulario();
     mostrarSecao(secaoFormulario);
+});
+
+btnListarPedidosAntigos.addEventListener('click', () => {
+    mostrarSecao(secaoLista);
+    listarPedidosAntigos(); 
 });
 
 // Ações dos botões do modal
