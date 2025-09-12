@@ -7,7 +7,7 @@
 // CONFIGURAÇÃO E CONSTANTES
 // ================================
 const CONFIG = {
-    API_URL: 'http://localhost:8080/pedidos',
+    API_URL: 'http://localhost:8091/pedidos',
     VALIDATION_DELAY: 500,
     TOAST_DURATION: 3000,
     TOOLTIP_DURATION: 4000,
