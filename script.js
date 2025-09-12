@@ -482,6 +482,7 @@ class GerenciadorPedidos {
         this.ui = new UIController(this.dom);
         this.api = new APIService();
         this.idParaExcluir = null;
+        this.vistaAtual = 'futuros'; // ALTERAÇÃO AQUI: Adiciona estado para a visualização atual
         
         this.inicializar();
     }
@@ -560,6 +561,7 @@ class GerenciadorPedidos {
      * Lista todos os pedidos
      */
     async listarPedidos() {
+        this.vistaAtual = 'futuros'; // ALTERAÇÃO AQUI: Define a visualização atual
         try {
             this.ui.mostrarSecao(this.dom.secaoLista);
             const pedidos = await this.api.listarPedidos();
@@ -573,6 +575,7 @@ class GerenciadorPedidos {
      * Lista pedidos antigos
      */
     async listarPedidosAntigos() {
+        this.vistaAtual = 'antigos'; // ALTERAÇÃO AQUI: Define a visualização atual
         try {
             this.ui.mostrarSecao(this.dom.secaoLista);
             const pedidos = await this.api.listarPedidosAntigos();
@@ -719,7 +722,14 @@ class GerenciadorPedidos {
         try {
             await this.api.excluirPedido(this.idParaExcluir);
             this.fecharModalExclusao();
-            await this.listarPedidos();
+            
+            // ALTERAÇÃO AQUI: Verifica qual lista deve ser recarregada
+            if (this.vistaAtual === 'antigos') {
+                await this.listarPedidosAntigos();
+            } else {
+                await this.listarPedidos();
+            }
+
         } catch (error) {
             alert(error.message);
         }
